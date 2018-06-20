@@ -202,9 +202,11 @@ if __name__ == "__main__":
             if parent_conn.poll():
                 parent_conn.recv()
                 with g_lock:
-                    data = lidar_data[:,0]
-                    # data = data[data < 0] filter out errors
-                    print(data)
+                    distance  = lidar_data[:,0]
+                    integrity = lidar_data[:,1]
+                    # Filter out errors
+                    distance[integrity < 1] = 0
+                    print(distance)
 
     except KeyboardInterrupt:
         parent_conn.send(0xFF)
