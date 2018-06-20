@@ -101,7 +101,7 @@ def run(shared_buffer, lock, msg_pipe):
     Stores readings into lidar_data numpy array
     """
     global serial_port
-    
+
     if serial_port is None:
         raise TypeError('init() must to be called first')
 
@@ -128,14 +128,14 @@ def run(shared_buffer, lock, msg_pipe):
         # Packet index | Range = [0,89]
         index = packet_index[0] - 0xA0
 		
-		# Read the rest of the packet
+        # Read the rest of the packet
         data = serial_port.read(20)
 
         # Verify the packet's integrity
         expected_checksum = data[19] << 8 | data[18]
         actual_checksum = packet_header + packet_index + data[0:18]
         if checksum(actual_checksum) != expected_checksum:
-		    # Checksum error
+            # Checksum error
             with lock:
                 for i in range(4):
                     shared_buffer[8 * index + 2 * i + 0] = 0
@@ -151,15 +151,15 @@ def run(shared_buffer, lock, msg_pipe):
             distance = (data[byte_ndx + 1] << 8) | data[byte_ndx]
             # The second 16 bits are the reliability (higher # = more reliable reading)
             quality  = (data[byte_ndx + 3] << 8) | data[byte_ndx + 2]
-			# Look for "invalid data" flag
+            # Look for "invalid data" flag
             if (distance & 0x8000) > 0:
                 with lock:
-				    # byte 0 contains the error code
+                    # byte 0 contains the error code
                     shared_buffer[8 * index + 2 * i + 0] = data[byte_ndx]
                     shared_buffer[8 * index + 2 * i + 1] = -1
                 continue
-			# Look for "signal strength warning" flag
-			# adding distance might be okay
+            # Look for "signal strength warning" flag
+            # adding distance might be okay
             elif (distance & 0x4000) > 0:
                 with lock:
                     shared_buffer[8 * index + 2 * i + 0] = distance
@@ -179,7 +179,7 @@ def run(shared_buffer, lock, msg_pipe):
 
 if __name__ == "__main__":
     import multiprocessing as mp
-	import numpy as np
+    import numpy as np
 	
     # Multiprocessing array containing the synchronous state
     shared_buffer = mp.Array('i', 720)
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     lidar_data = np.frombuffer(shared_buffer.get_obj(), dtype=int).reshape((360, 2))
     # Global lock
     g_lock = mp.Lock()
-	# Multiprocessing communication pipe
+    # Multiprocessing communication pipe
     parent_conn, child_conn = mp.Pipe()
 
     init()
@@ -198,16 +198,16 @@ if __name__ == "__main__":
     try:
         while True:
             time.sleep(0.00001)
-			# Check if any data in pipe to prevent blocking
+            # Check if any data in pipe to prevent blocking
             if parent_conn.poll():
                 parent_conn.recv()
                 with g_lock:
                     data = lidar_data[:,0]
-					# data = data[data < 0] filter out errors
+                    # data = data[data < 0] filter out errors
                     print(data)
 
     except KeyboardInterrupt:
-		parent_conn.send(0xFF)
+        parent_conn.send(0xFF)
 
     p.join()
     cleanup()
