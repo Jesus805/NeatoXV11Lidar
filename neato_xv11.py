@@ -68,7 +68,7 @@ def cleanup():
         serial_port.close()
     serial_port = None
 
-    GPIO.cleanup()
+    GPIO.cleanup(BOARD_NUM)
 
 
 def init():
