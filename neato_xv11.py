@@ -63,6 +63,7 @@ def cleanup():
     Clean up Serial and GPIO port.
     Should be called before closing the program.
     """
+    global serial_port
     if serial_port is not None and serial_port.is_open:
         serial_port.close()
     serial_port = None
