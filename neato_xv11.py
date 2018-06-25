@@ -40,7 +40,7 @@ def checksum(data):
     """
     Compute and return the checksum as an int.
     :param data: list of 20 bytes, in the order they arrived in.
-    :return: The checksum computed
+    :return: The checksum computed.
     """
     # group the data by word, little-endian
     data_list = []
@@ -60,15 +60,19 @@ def checksum(data):
 
 def cleanup():
     """
-    Clean up GPIO port.
+    Clean up Serial and GPIO port.
     Should be called before closing the program.
     """
+    if serial_port is not None and serial_port.is_open:
+        serial_port.close()
+    serial_port = None
+
     GPIO.cleanup()
 
 
 def init():
     """
-    Initialize simulation GPIO
+    Initialize Serial and GPIO Port.
     """
     global BOARD_NUM, COM_PORT, BAUDRATE, serial_port
     serial_port = serial.Serial(port=COM_PORT, baudrate=BAUDRATE, timeout=None)
@@ -79,7 +83,7 @@ def init():
 
 def motor_disable():
     """
-    Set Voltage LOW on GPIO pin
+    Set Voltage LOW on GPIO pin.
     """
     global BOARD_NUM
 
@@ -88,7 +92,7 @@ def motor_disable():
 
 def motor_enable():
     """
-    Set Voltage HIGH on GPIO pin
+    Set Voltage HIGH on GPIO pin.
     """
     global BOARD_NUM
 
@@ -97,8 +101,11 @@ def motor_enable():
 
 def run(shared_buffer, lock, msg_pipe):
     """
-    Read from LIDAR readings from serial port
-    Stores readings into lidar_data numpy array
+    Read from LIDAR readings from serial port.
+    Stores readings into multiprocessing buffer.
+    :param shared_buffer: multiprocessing 1D array of size 720 (360 x 2).
+    :param lock: multiprocessing lock.
+    :param msg_pipe: pipe to send messages to calling process.
     """
     global serial_port
 
