@@ -138,6 +138,8 @@ def run(buffer, lock, msg_pipe):
                     is_lidar_running = False
                     motor_disable()
                 elif data == LidarParentOps.KILL:
+                    is_lidar_running = False
+                    motor_disable()
                     break
                 else:
                     raise Exception('Invalid Opcode')
@@ -238,6 +240,7 @@ if __name__ == "__main__":
     init()
     p = mp.Process(target=run, args=(shared_buffer, g_lock, child_conn,))
     p.start()
+    parent_conn.send(LidarParentOps.ON)
     try:
         while True:
             time.sleep(0.00001)
