@@ -24,7 +24,11 @@ import serial
 import time
 import RPi.GPIO as GPIO
 
-from .neato_opcodes import LidarParentOps, LidarChildOps
+try:
+    from .neato_opcodes import LidarParentOps, LidarChildOps
+except ImportError:
+    from neato_opcodes import LidarParentOps, LidarChildOps
+
 
 # Raspberry Pi 2
 # COM_PORT  = '/dev/ttyAMA0'
