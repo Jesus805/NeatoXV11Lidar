@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-'''
+"""
 MIT License
 
 Copyright (c) 2018 Jesus Bamford
@@ -10,14 +10,15 @@ documentation files (the "Software"), to deal in the Software without restrictio
 the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
 and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
 INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
 PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
 FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-'''
+"""
 
 import serial
 import time
@@ -32,13 +33,14 @@ from .neato_opcodes import LidarParentOps, LidarChildOps
 # COM_PORT  = '/dev/ttyS0'
 
 # Select the correct UART port automatically
-COM_PORT   = '/dev/serial0'
-BAUDRATE   = 115200
-BOARD_NUM  = 11
+COM_PORT  = '/dev/serial0'
+BAUDRATE  = 115200
+BOARD_NUM = 11
 
-serial_port = None
+serial_port      = None
 is_lidar_running = False
-kill_lidar = False
+kill_lidar       = False
+
 
 def checksum(data):
     """
@@ -106,11 +108,11 @@ def motor_enable():
     GPIO.output(BOARD_NUM, 1)
 
 
-def run(shared_buffer, lock, msg_pipe):
+def run(buffer, lock, msg_pipe):
     """
     Read from LIDAR readings from serial port.
     Stores readings into multiprocessing buffer.
-    :param shared_buffer: multiprocessing 1D array of size 720 (360 x 2).
+    :param buffer: multiprocessing 1D array of size 720 (360 x 2).
     :param lock: multiprocessing lock.
     :param msg_pipe: pipe to send messages to calling process.
     """
@@ -125,7 +127,6 @@ def run(shared_buffer, lock, msg_pipe):
             # Check for any messages in the pipe
             if msg_pipe.poll():
                 data = msg_pipe.recv()
-                parse_message(data)
                 if data == LidarParentOps.ON:
                     is_lidar_running = True
                     motor_enable()
@@ -140,7 +141,8 @@ def run(shared_buffer, lock, msg_pipe):
             if not is_lidar_running:
                 continue
 
-            # Packet format = [0xFA, 1-byte index, 2-byte speed, [2-byte flags/distance, 2-byte quality] * 4, 2-byte checksum]
+            # Packet format:
+            # [0xFA, 1-byte index, 2-byte speed, [2-byte flags/distance, 2-byte quality] * 4, 2-byte checksum]
             # All multi-byte values are little endian.
             packet_header = serial_port.read(1)
             if packet_header[0] != 0xFA:
@@ -163,8 +165,8 @@ def run(shared_buffer, lock, msg_pipe):
                 # Checksum error
                 with lock:
                     for i in range(4):
-                        shared_buffer[8 * index + 2 * i + 0] = 0
-                        shared_buffer[8 * index + 2 * i + 1] = -3
+                        buffer[8 * index + 2 * i + 0] = 0
+                        buffer[8 * index + 2 * i + 1] = -3
                 continue
 
             # Speed in revolutions per minute
@@ -180,21 +182,21 @@ def run(shared_buffer, lock, msg_pipe):
                 if (distance & 0x8000) > 0:
                     with lock:
                         # byte 0 contains the error code
-                        shared_buffer[8 * index + 2 * i + 0] = data[byte_ndx]
-                        shared_buffer[8 * index + 2 * i + 1] = -1
+                        buffer[8 * index + 2 * i + 0] = data[byte_ndx]
+                        buffer[8 * index + 2 * i + 1] = -1
                     continue
                 # Look for "signal strength warning" flag
                 # adding distance might be okay
                 elif (distance & 0x4000) > 0:
                     with lock:
-                        shared_buffer[8 * index + 2 * i + 0] = distance
-                        shared_buffer[8 * index + 2 * i + 1] = -2
+                        buffer[8 * index + 2 * i + 0] = distance
+                        buffer[8 * index + 2 * i + 1] = -2
                     continue
                 else:
                     # Remove flags and write distance/quality to numpy array
                     with lock:
-                        shared_buffer[8 * index + 2 * i + 0] = distance & 0x3FFF
-                        shared_buffer[8 * index + 2 * i + 1] = quality
+                        buffer[8 * index + 2 * i + 0] = distance & 0x3FFF
+                        buffer[8 * index + 2 * i + 1] = quality
 
             if index == 89:
                 msg_pipe.send(LidarChildOps.DATA)
@@ -217,6 +219,18 @@ if __name__ == "__main__":
     # Multiprocessing communication pipe
     parent_conn, child_conn = mp.Pipe()
 
+    f = None
+
+    choice = str(input("Press 1 to print LIDAR distances\nPress 2 to log LIDAR distances"))
+
+    if choice == "1":
+        print("Printing to console.")
+    elif choice == "2":
+        f = open('LIDAR_DISTANCE.txt', 'w')
+    else:
+        print("Invalid choice.")
+        exit(-1)
+
     init()
     p = mp.Process(target=run, args=(shared_buffer, g_lock, child_conn,))
     p.start()
@@ -224,16 +238,23 @@ if __name__ == "__main__":
         while True:
             time.sleep(0.00001)
             if parent_conn.poll():
-                parent_conn.recv()
-                with g_lock:
-                    distance  = lidar_data[:,0]
-                    integrity = lidar_data[:,1]
-                    # Filter out errors
-                    distance[integrity < 1] = 0
-                    print(distance)
-
+                message = parent_conn.recv()
+                if message == LidarChildOps.DATA:
+                    with g_lock:
+                        np_distance  = lidar_data[:, 0]
+                        np_integrity = lidar_data[:, 1]
+                        # Filter out errors
+                        np_distance[np_integrity < 1] = 0
+                        if choice == "1":
+                            print(np_distance)
+                        elif choice == "2":
+                            f.write(np_distance.tostring())
+                elif message == LidarChildOps.ERR:
+                    print("Critical Error returned from LIDAR process!")
     except KeyboardInterrupt:
-        parent_conn.send(SendOps.KILL)
+        parent_conn.send(LidarParentOps.KILL)
+        if f is not None:
+            f.close()
 
     p.join()
     cleanup()
