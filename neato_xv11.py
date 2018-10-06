@@ -26,7 +26,7 @@ import RPi.GPIO as GPIO
 
 try:
     from .neato_opcodes import LidarParentOps, LidarChildOps
-except ImportError:
+except SystemError:
     from neato_opcodes import LidarParentOps, LidarChildOps
 
 
