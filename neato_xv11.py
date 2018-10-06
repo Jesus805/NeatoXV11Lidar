@@ -227,7 +227,7 @@ if __name__ == "__main__":
 
     f = None
 
-    choice = str(input("Press 1 to print LIDAR distances\nPress 2 to log LIDAR distances"))
+    choice = str(input("Press 1 to print LIDAR distances\nPress 2 to log LIDAR distances\n"))
 
     if choice == "1":
         print("Printing to console.")
@@ -255,7 +255,9 @@ if __name__ == "__main__":
                         if choice == "1":
                             print(np_distance)
                         elif choice == "2":
-                            f.write(np_distance.tostring())
+                            # Set newline as a space to keep array in one line
+                            np.savetxt(f, np_distance, fmt="%s", newline=' ')
+                            f.write('\n')
                 elif message == LidarChildOps.ERR:
                     print("Critical Error returned from LIDAR process!")
     except KeyboardInterrupt:
