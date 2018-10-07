@@ -266,4 +266,3 @@ if __name__ == "__main__":
             f.close()
 
     p.join()
-    cleanup()
